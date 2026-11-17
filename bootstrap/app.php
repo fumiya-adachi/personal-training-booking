@@ -19,5 +19,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo('/reservations/create');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Laravel's standard exception handling preserves validation errors for Inertia.
+        // API failures must also return JSON, including authentication and validation errors.
+        $exceptions->shouldRenderJsonWhen(fn (\Illuminate\Http\Request $request, \Throwable $exception) => $request->is('api/*') || $request->expectsJson());
     })->create();

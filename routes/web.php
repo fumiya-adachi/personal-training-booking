@@ -38,3 +38,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/closed-dates/{closedDate}', [Admin\ScheduleController::class, 'destroyClosedDate'])->name('closed-dates.destroy');
     });
 });
+
+// JSON endpoint using the same session authentication as the admin pages.
+Route::get('/api/admin/reservations', [Admin\ReservationController::class, 'data'])
+    ->middleware(['auth', 'admin'])->name('api.admin.reservations.index');

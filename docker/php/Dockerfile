@@ -1,4 +1,4 @@
-FROM php:8.4-fpm-alpine
+FROM php:8.4-fpm-alpine AS base
 
 ARG COMPOSER_VERSION=2.9.2
 RUN apk add --no-cache git unzip curl icu-libs oniguruma libzip sqlite-libs \
@@ -16,3 +16,15 @@ RUN apk add --no-cache git unzip curl icu-libs oniguruma libzip sqlite-libs \
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/application.ini
 WORKDIR /var/www/html
 CMD ["php-fpm"]
+
+# Opt-in local development image. The default/final stage stays Xdebug-free.
+FROM base AS debug
+ARG XDEBUG_VERSION=3.5.3
+RUN apk add --no-cache --virtual .xdebug-build-deps $PHPIZE_DEPS linux-headers \
+    && pecl install xdebug-${XDEBUG_VERSION} \
+    && docker-php-ext-enable xdebug \
+    && apk del .xdebug-build-deps \
+    && rm -rf /tmp/pear
+COPY docker/php/xdebug.ini /usr/local/etc/php/conf.d/zz-xdebug.ini
+
+FROM base AS production

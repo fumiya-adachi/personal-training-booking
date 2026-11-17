@@ -67,3 +67,18 @@ shell: ## appコンテナのシェルを開く
 
 artisan: ## Artisanを実行（例: make artisan ARGS='queue:failed'）
 	docker compose exec app php artisan $(ARGS)
+
+.PHONY: debug-up debug-off debug-info
+
+debug-up: ## Xdebug付きappをビルドして起動（setup実行後）
+	docker compose -f compose.yaml -f compose.debug.yaml up -d --build --wait app
+	docker compose up -d --no-deps web
+	docker compose exec -T web nginx -s reload
+
+debug-off: ## 通常のXdebugなしappに戻す
+	docker compose up -d --no-deps --build --wait app
+	docker compose up -d --no-deps web
+	docker compose exec -T web nginx -s reload
+
+debug-info: ## appのXdebug設定を確認
+	docker compose exec app php --ri xdebug

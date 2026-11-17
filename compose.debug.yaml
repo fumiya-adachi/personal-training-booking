@@ -1,0 +1,8 @@
+# Local development only: docker compose -f compose.yaml -f compose.debug.yaml ...
+services:
+  app:
+    image: form-training-php:debug
+    build:
+      target: debug
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

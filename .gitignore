@@ -9,7 +9,9 @@
 /.idea
 /.nova
 /.phpunit.cache
-/.vscode
+/.vscode/*
+!/.vscode/launch.json
+!/.vscode/extensions.json
 /.zed
 /auth.json
 /node_modules
@@ -25,3 +27,7 @@ Thumbs.db
 /playwright-report
 /test-results
 /docker-data
+
+# Local study notes
+/STUDY_ROADMAP.md
+/STUDY.md

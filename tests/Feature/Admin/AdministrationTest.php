@@ -92,15 +92,14 @@ class AdministrationTest extends ReservationTestCase
         $this->actingAs($this->client)->post('/reservations', $this->bookingData());
         $reservation = Reservation::sole();
         $this->actingAs($this->admin())
-            ->get('/admin/reservations?'.http_build_query(['date' => $this->bookingDate, 'status' => 'confirmed']))
-            ->assertInertia(fn (Assert $page) => $page->component('admin/reservations/Index')
-                ->has('reservations', 1)
-                ->where('reservations.0.id', $reservation->id)
-                ->where('filters.date', $this->bookingDate)
-                ->where('filters.status', 'confirmed'));
+            ->getJson('/api/admin/reservations?'.http_build_query(['date' => $this->bookingDate, 'status' => 'confirmed']))
+            ->assertOk()->assertJsonCount(1, 'reservations')
+            ->assertJsonPath('reservations.0.id', $reservation->id)
+            ->assertJsonPath('filters.date', $this->bookingDate)
+            ->assertJsonPath('filters.status', 'confirmed');
 
-        $this->get('/admin/reservations?'.http_build_query(['date' => '2030-01-10', 'status' => 'confirmed']))
-            ->assertInertia(fn (Assert $page) => $page->has('reservations', 0));
+        $this->getJson('/api/admin/reservations?'.http_build_query(['date' => '2030-01-10', 'status' => 'confirmed']))
+            ->assertOk()->assertJsonCount(0, 'reservations');
     }
 
     public function test_admin_can_filter_reservations_by_trainer_and_combine_filters(): void
@@ -116,26 +115,40 @@ class AdministrationTest extends ReservationTestCase
             ['trainer_id' => $this->trainer->id],
             ['trainer_id' => $this->trainer->id, 'date' => $this->bookingDate, 'status' => 'confirmed'],
         ] as $filters) {
-            $this->get('/admin/reservations?'.http_build_query($filters))
-                ->assertInertia(fn (Assert $page) => $page->has('reservations', 1)
-                    ->where('reservations.0.id', $reservation->id)
-                    ->where('filters.trainer_id', (string) $this->trainer->id)
-                    ->has('trainers', 2));
+            $this->getJson('/api/admin/reservations?'.http_build_query($filters))
+                ->assertOk()->assertJsonCount(1, 'reservations')
+                ->assertJsonPath('reservations.0.id', $reservation->id)
+                ->assertJsonPath('filters.trainer_id', (string) $this->trainer->id);
         }
 
-        $this->get('/admin/reservations?'.http_build_query(['trainer_id' => $this->trainer->id, 'status' => 'cancelled']))
-            ->assertInertia(fn (Assert $page) => $page->has('reservations', 0));
-        $this->get('/admin/reservations?trainer_id=')
-            ->assertInertia(fn (Assert $page) => $page->has('reservations', 2)->where('filters.trainer_id', ''));
+        $this->getJson('/api/admin/reservations?'.http_build_query(['trainer_id' => $this->trainer->id, 'status' => 'cancelled']))
+            ->assertOk()->assertJsonCount(0, 'reservations');
+        $this->getJson('/api/admin/reservations?trainer_id=')
+            ->assertOk()->assertJsonCount(2, 'reservations')->assertJsonPath('filters.trainer_id', '');
     }
 
     public function test_admin_trainer_filter_rejects_invalid_values(): void
     {
         $this->actingAs($this->admin());
         foreach (['invalid', '999999'] as $value) {
-            $this->get('/admin/reservations?trainer_id='.$value)
-                ->assertSessionHasErrors('trainer_id');
+            $this->getJson('/api/admin/reservations?trainer_id='.$value)
+                ->assertUnprocessable()->assertJsonValidationErrors('trainer_id');
         }
+    }
+
+    public function test_reservation_api_requires_an_admin_and_returns_json_errors(): void
+    {
+        $this->get('/api/admin/reservations')->assertUnauthorized()->assertJsonStructure(['message']);
+        $this->actingAs($this->client)->getJson('/api/admin/reservations')->assertForbidden();
+        $this->actingAs($this->admin())->getJson('/api/admin/reservations?date=invalid&status=invalid')
+            ->assertUnprocessable()->assertJsonValidationErrors(['date', 'status']);
+    }
+
+    public function test_admin_page_only_supplies_page_metadata(): void
+    {
+        $this->actingAs($this->admin())->get('/admin/reservations')
+            ->assertInertia(fn (Assert $page) => $page->component('admin/reservations/Index')
+                ->has('stats')->has('trainers')->missing('reservations'));
     }
 
     public function test_admin_can_change_weekly_closures_and_remove_them(): void

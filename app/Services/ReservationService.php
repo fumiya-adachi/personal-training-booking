@@ -20,6 +20,7 @@ class ReservationService
     public function create(User $user, array $data): Reservation
     {
         return DB::transaction(function () use ($user, $data) {
+            \Log::debug('Creating reservation for user '.$user->id.' with data: '.json_encode($data));
             // Every booking locks the client first, then trainer rows in ascending order.
             // All writers (including schedule changes) use these trainer locks.
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();

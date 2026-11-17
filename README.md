@@ -177,3 +177,22 @@ compose.yaml           サービス構成
 ```
 
 Docker構成はローカル開発用です。実運用時にはHTTPS・実際のSMTP・定期バックアップ・`APP_DEBUG=false`・環境ごとの認証情報を設定し、デモアカウントを削除してください。
+
+## 予約一覧のJSON API
+
+管理画面の予約一覧は、Vueから `GET /api/admin/reservations` を呼び出して取得します。
+画面表示用の `GET /admin/reservations` はInertiaのままで、集計とトレーナー選択肢を渡します。
+
+APIは既存のログインセッションを使用するため、ルートは `routes/web.php` に定義しています。
+管理者のみ利用でき、未ログインは401、権限不足は403、不正な検索条件は422のJSONを返します。
+
+- 検索条件: `date=YYYY-MM-DD`、`status=confirmed|cancelled`、`trainer_id=ID`（すべて任意）
+- レスポンス: `{ "reservations": [...], "filters": { "date": "", "status": "", "trainer_id": "" } }`
+- 処理: `Admin/ReservationController::data()` → DB検索 → JSON → `admin/reservations/Index.vue`で描画
+- ブラウザの開発者ツールのNetworkタブで、初回表示・絞り込み時のJSON通信を確認できます。
+
+## Xdebugによるステップ実行
+
+`make debug-up`で開発用Xdebugを有効にし、VS Codeの「Listen for Xdebug (Docker)」で待ち受けます。終了時は`make debug-off`で通常イメージへ戻せます。
+
+設定・APIデバッグ・`ReservationService::create()`の具体的な手順は[docs/xdebug-setup.md](docs/xdebug-setup.md)を参照してください。

@@ -9,6 +9,7 @@ use App\Models\Reservation;
 use App\Models\Trainer;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -16,14 +17,27 @@ use Inertia\Response;
 
 class ReservationController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
+    {
+        $today = CarbonImmutable::today('Asia/Tokyo');
+
+        return Inertia::render('admin/reservations/Index', [
+            'stats' => [
+                'today' => Reservation::where('status', ReservationStatus::Confirmed)->where('starts_at', '>=', $today->utc())->where('starts_at', '<', $today->addDay()->utc())->count(),
+                'upcoming' => Reservation::where('status', ReservationStatus::Confirmed)->where('starts_at', '>', now('UTC'))->count(),
+                'clients' => User::where('role', UserRole::Client)->count(),
+            ],
+            'trainers' => Trainer::orderBy('id')->get(),
+        ]);
+    }
+
+    public function data(Request $request): JsonResponse
     {
         $filters = $request->validate([
             'date' => ['nullable', 'date_format:Y-m-d'],
             'trainer_id' => ['nullable', 'integer', Rule::exists('trainers', 'id')],
             'status' => ['nullable', Rule::enum(ReservationStatus::class)],
         ]);
-        $today = CarbonImmutable::today('Asia/Tokyo');
         $query = Reservation::query()->with(['trainer', 'user'])->orderByDesc('starts_at');
 
         if (! empty($filters['date'])) {
@@ -38,15 +52,9 @@ class ReservationController extends Controller
             $query->where('trainer_id', $filters['trainer_id']);
         }
 
-        return Inertia::render('admin/reservations/Index', [
+        return response()->json([
             'reservations' => $query->get()->map(fn (Reservation $reservation) => $reservation->toView()),
-            'stats' => [
-                'today' => Reservation::where('status', ReservationStatus::Confirmed)->where('starts_at', '>=', $today->utc())->where('starts_at', '<', $today->addDay()->utc())->count(),
-                'upcoming' => Reservation::where('status', ReservationStatus::Confirmed)->where('starts_at', '>', now('UTC'))->count(),
-                'clients' => User::where('role', UserRole::Client)->count(),
-            ],
             'filters' => ['date' => $filters['date'] ?? '', 'status' => $filters['status'] ?? '', 'trainer_id' => (string) ($filters['trainer_id'] ?? '')],
-            'trainers' => Trainer::orderBy('id')->get(),
         ]);
     }
 }
