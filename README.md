@@ -4,10 +4,10 @@ Laravel 12・Vue 3・TypeScript・Inertia.js・Tailwind CSSで作成した、日
 
 ## 起動
 
-必要なものは Docker Engine または Docker Desktop と Docker Compose v2 です。ホスト側へのPHP・Composer・Node.jsのインストールは不要です。
+必要なものは Docker Engine または Docker Desktop、Docker Compose v2、GNU Make です。ホスト側へのPHP・Composer・Node.jsのインストールは不要です。
 
 ```sh
-./scripts/setup.sh
+make setup
 ```
 
 初回はPHPイメージのビルドと依存関係の取得に数分かかります。スクリプトは `.env.example` から `.env` を作成し、Composer/npmの依存関係、画面のビルド、DBマイグレーション、デモデータの投入、Web・キューワーカーの起動を行います。既存の `.env` と `APP_KEY` は保持します。
@@ -17,7 +17,7 @@ Laravel 12・Vue 3・TypeScript・Inertia.js・Tailwind CSSで作成した、日
 | アプリ | http://localhost:8080 |
 | 開発用メール受信箱（Mailpit） | http://localhost:8025 |
 
-LinuxでホストユーザーのUID/GIDが1000以外の場合は、後続のコマンドでも次を設定してください。
+MakefileはホストユーザーのUID/GIDを自動で設定します。LinuxでホストユーザーのUID/GIDが1000以外の場合に、`docker compose` を直接実行する際は次を設定してください。
 
 ```sh
 export LOCAL_UID="$(id -u)"
@@ -69,7 +69,7 @@ docker compose restart queue
 ## テストとビルド
 
 ```sh
-./scripts/test.sh
+make test
 ```
 
 このスクリプトはバックエンドのテスト、TypeScriptの型チェック、フロントエンドの本番ビルドを実行します。PHPのテストは `.env` の開発用DBを使用せず、`phpunit.xml` で指定したテスト用DBを使います。
@@ -103,6 +103,35 @@ E2Eは起動中の開発DBに、`e2e-`で始まる会員と受付停止状態の
 - Redisキュー経由の確認メールがMailpitに届くことを確認
 
 ## 開発時の操作
+
+`make` または `make help` でコマンド一覧を表示します。初回は `make setup` でビルドから起動まで実行できます（内部で既存の `scripts/setup.sh` を使用）。Makeがない場合は従来どおりスクリプトを直接実行できます。
+
+```sh
+# セットアップ後の再ビルドと起動（順番に実行）
+make build && make up
+
+# 状態確認・停止・ログ確認
+make ps
+make down
+make logs SERVICE=queue
+
+# フロントエンド変更の反映
+make build-assets
+
+# テスト・型チェック・PHPコードスタイル確認
+make test
+make typecheck
+make lint
+
+# DB更新・Laravelキャッシュ削除・任意のArtisanコマンド
+make migrate
+make cache-clear
+make artisan ARGS='queue:failed'
+```
+
+`make restart` は既存コンテナの再起動です。イメージやCompose設定の変更後は `make up` でコンテナを再作成してください。`make format` でPHPコードを整形、`make shell` でappコンテナのシェルを開けます。`make seed` は起動中の開発環境にデモデータを投入します。
+
+Docker Composeを直接使用する場合:
 
 ```sh
 # 停止（DBデータは保持）
