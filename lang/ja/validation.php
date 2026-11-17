@@ -1,0 +1,36 @@
+<?php
+
+return [
+    'accepted' => ':attributeに同意してください。',
+    'required' => ':attributeを入力してください。',
+    'string' => ':attributeは文字列で入力してください。',
+    'integer' => ':attributeは整数で入力してください。',
+    'boolean' => ':attributeを正しく指定してください。',
+    'email' => ':attributeを正しく入力してください。',
+    'array' => ':attributeを正しく指定してください。',
+    'confirmed' => ':attributeが確認用の入力と一致しません。',
+    'date' => ':attributeを正しい日付で入力してください。',
+    'date_format' => ':attributeの形式が正しくありません。',
+    'after_or_equal' => ':attributeは:date以降で指定してください。',
+    'before_or_equal' => ':attributeは:date以前で指定してください。',
+    'exists' => '選択された:attributeは無効です。',
+    'unique' => 'この:attributeは既に登録されています。',
+    'regex' => ':attributeの形式が正しくありません。',
+    'distinct' => ':attributeに重複があります。',
+    'lowercase' => ':attributeは小文字で入力してください。',
+    'between' => ['numeric' => ':attributeは:min〜:maxで指定してください。'],
+    'max' => ['string' => ':attributeは:max文字以内で入力してください。', 'numeric' => ':attributeは:max以下で指定してください。', 'array' => ':attributeは:max件以内で指定してください。'],
+    'min' => ['string' => ':attributeは:min文字以上で入力してください。', 'numeric' => ':attributeは:min以上で指定してください。'],
+    'size' => ['array' => ':attributeは:size件で指定してください。'],
+    'password' => [
+        'mixed' => ':attributeには英大文字と英小文字を含めてください。',
+        'numbers' => ':attributeには数字を含めてください。',
+        'letters' => ':attributeには英字を含めてください。',
+    ],
+    'attributes' => [
+        'name' => 'お名前', 'email' => 'メールアドレス', 'password' => 'パスワード',
+        'date' => '日付', 'time' => '時刻', 'trainer_id' => 'トレーナー', 'notes' => 'ご要望',
+        'specialty' => '専門分野', 'bio' => 'プロフィール', 'color' => '表示色',
+        'is_active' => '公開状態', 'reason' => '休業理由', 'schedules' => '勤務スケジュール',
+    ],
+];
