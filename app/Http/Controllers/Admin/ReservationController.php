@@ -20,6 +20,7 @@ class ReservationController extends Controller
     {
         $filters = $request->validate([
             'date' => ['nullable', 'date_format:Y-m-d'],
+            'trainer_id' => ['nullable', 'integer', Rule::exists('trainers', 'id')],
             'status' => ['nullable', Rule::enum(ReservationStatus::class)],
         ]);
         $today = CarbonImmutable::today('Asia/Tokyo');
@@ -33,6 +34,10 @@ class ReservationController extends Controller
             $query->where('status', $filters['status']);
         }
 
+        if (! empty($filters['trainer_id'])) {
+            $query->where('trainer_id', $filters['trainer_id']);
+        }
+
         return Inertia::render('admin/reservations/Index', [
             'reservations' => $query->get()->map(fn (Reservation $reservation) => $reservation->toView()),
             'stats' => [
@@ -40,7 +45,7 @@ class ReservationController extends Controller
                 'upcoming' => Reservation::where('status', ReservationStatus::Confirmed)->where('starts_at', '>', now('UTC'))->count(),
                 'clients' => User::where('role', UserRole::Client)->count(),
             ],
-            'filters' => ['date' => $filters['date'] ?? '', 'status' => $filters['status'] ?? ''],
+            'filters' => ['date' => $filters['date'] ?? '', 'status' => $filters['status'] ?? '', 'trainer_id' => (string) ($filters['trainer_id'] ?? '')],
             'trainers' => Trainer::orderBy('id')->get(),
         ]);
     }

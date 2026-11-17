@@ -103,6 +103,75 @@ class AdministrationTest extends ReservationTestCase
             ->assertInertia(fn (Assert $page) => $page->has('reservations', 0));
     }
 
+    public function test_admin_can_filter_reservations_by_trainer_and_combine_filters(): void
+    {
+        $other = $this->createTrainer('別のトレーナー');
+        $this->actingAs($this->client)->post('/reservations', $this->bookingData())->assertSessionHasNoErrors();
+        $reservation = Reservation::sole();
+        $this->post('/reservations', $this->bookingData(['trainer_id' => $other->id, 'time' => '12:00']))->assertSessionHasNoErrors();
+        $this->trainer->update(['is_active' => false]);
+
+        $this->actingAs($this->admin());
+        foreach ([
+            ['trainer_id' => $this->trainer->id],
+            ['trainer_id' => $this->trainer->id, 'date' => $this->bookingDate, 'status' => 'confirmed'],
+        ] as $filters) {
+            $this->get('/admin/reservations?'.http_build_query($filters))
+                ->assertInertia(fn (Assert $page) => $page->has('reservations', 1)
+                    ->where('reservations.0.id', $reservation->id)
+                    ->where('filters.trainer_id', (string) $this->trainer->id)
+                    ->has('trainers', 2));
+        }
+
+        $this->get('/admin/reservations?'.http_build_query(['trainer_id' => $this->trainer->id, 'status' => 'cancelled']))
+            ->assertInertia(fn (Assert $page) => $page->has('reservations', 0));
+        $this->get('/admin/reservations?trainer_id=')
+            ->assertInertia(fn (Assert $page) => $page->has('reservations', 2)->where('filters.trainer_id', ''));
+    }
+
+    public function test_admin_trainer_filter_rejects_invalid_values(): void
+    {
+        $this->actingAs($this->admin());
+        foreach (['invalid', '999999'] as $value) {
+            $this->get('/admin/reservations?trainer_id='.$value)
+                ->assertSessionHasErrors('trainer_id');
+        }
+    }
+
+    public function test_admin_can_change_weekly_closures_and_remove_them(): void
+    {
+        $this->actingAs($this->admin())->put('/admin/closed-weekdays', ['closed_weekdays' => [3, 5]])
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertDatabaseHas('business_hours', ['day_of_week' => 1, 'is_open' => true]);
+        $this->assertDatabaseHas('business_hours', ['day_of_week' => 3, 'is_open' => false]);
+        $this->get('/admin/schedules')->assertInertia(fn (Assert $page) => $page->where('closedWeekdays', [3, 5]));
+        $calendar = app(\App\Services\AvailabilityService::class)->calendar($this->bookingDate);
+        $this->assertTrue($calendar['days'][0]['closed']);
+        $this->assertSame('closed', $calendar['slots'][$this->bookingDate]['10:00']['status']);
+        $this->actingAs($this->client)->post('/reservations', $this->bookingData())->assertSessionHasErrors();
+        $this->assertDatabaseCount('reservations', 0);
+
+        $this->actingAs($this->admin())->put('/admin/closed-weekdays', ['closed_weekdays' => []])
+            ->assertSessionHasNoErrors();
+        $calendar = app(\App\Services\AvailabilityService::class)->calendar($this->bookingDate);
+        $this->assertFalse($calendar['days'][0]['closed']);
+        $this->assertSame('available', $calendar['slots'][$this->bookingDate]['10:00']['status']);
+        $this->assertSame(7, \App\Models\BusinessHour::where('is_open', true)->count());
+    }
+
+    public function test_weekly_closures_protect_existing_reservations_and_validate_permissions_and_input(): void
+    {
+        $this->actingAs($this->client)->put('/admin/closed-weekdays', ['closed_weekdays' => [3]])->assertForbidden();
+        $this->post('/reservations', $this->bookingData())->assertSessionHasNoErrors();
+        $this->actingAs($this->admin())->put('/admin/closed-weekdays', ['closed_weekdays' => [3, 5]])
+            ->assertSessionHasErrors('closed_weekdays');
+        $this->assertDatabaseHas('business_hours', ['day_of_week' => 3, 'is_open' => true]);
+        $this->assertDatabaseHas('business_hours', ['day_of_week' => 5, 'is_open' => true]);
+        foreach ([[], ['closed_weekdays' => [7]], ['closed_weekdays' => [2, 2]], ['closed_weekdays' => 'invalid']] as $data) {
+            $this->put('/admin/closed-weekdays', $data)->assertSessionHasErrors();
+        }
+    }
+
     private function admin(): User
     {
         return User::factory()->create(['role' => 'admin']);

@@ -9,15 +9,15 @@ import { formatDate, formatMoney } from '@/composables/useFormat';
 const props = defineProps<{
     reservations: ReservationView[];
     stats: { today: number; upcoming: number; clients: number };
-    filters: { date: string; status: string };
+    filters: { date: string; status: string; trainer_id: string };
     trainers: Trainer[];
 }>();
-const filters = reactive({ date: props.filters.date || '', status: props.filters.status || '' });
-const hasFilters = computed(() => Boolean(filters.date || filters.status));
+const filters = reactive({ date: props.filters.date || '', status: props.filters.status || '', trainer_id: props.filters.trainer_id || '' });
+const hasFilters = computed(() => Boolean(filters.date || filters.status || filters.trainer_id));
 function applyFilters() {
-    router.get('/admin/reservations', { date: filters.date || undefined, status: filters.status || undefined }, { preserveState: true, preserveScroll: true });
+    router.get('/admin/reservations', { date: filters.date || undefined, status: filters.status || undefined, trainer_id: filters.trainer_id || undefined }, { preserveState: true, preserveScroll: true });
 }
-function resetFilters() { filters.date = ''; filters.status = ''; applyFilters(); }
+function resetFilters() { filters.date = ''; filters.status = ''; filters.trainer_id = ''; applyFilters(); }
 </script>
 
 <template>
@@ -40,11 +40,12 @@ function resetFilters() { filters.date = ''; filters.status = ''; applyFilters()
                 <form class="flex flex-wrap items-end gap-3" @submit.prevent="applyFilters">
                     <div><label for="filter-date" class="mb-1 block text-xs text-stone-500">予約日</label><input id="filter-date" v-model="filters.date" type="date" class="field min-h-10 w-40 text-sm" /></div>
                     <div><label for="filter-status" class="mb-1 block text-xs text-stone-500">ステータス</label><select id="filter-status" v-model="filters.status" class="field min-h-10 w-36 text-sm"><option value="">すべて</option><option value="confirmed">予約確定</option><option value="cancelled">キャンセル</option></select></div>
+                    <div><label for="filter-trainer" class="mb-1 block text-xs text-stone-500">トレーナー</label><select id="filter-trainer" v-model="filters.trainer_id" class="field min-h-10 w-44 text-sm"><option value="">すべて</option><option v-for="trainer in trainers" :key="trainer.id" :value="String(trainer.id)">{{ trainer.name }}</option></select></div>
                     <button type="submit" class="btn btn-secondary !min-h-10 text-sm"><SlidersHorizontal :size="15" />絞り込む</button>
                     <button v-if="hasFilters" type="button" class="btn btn-quiet !min-h-10" aria-label="絞り込みを解除" @click="resetFilters"><RotateCcw :size="16" /></button>
                 </form>
             </div>
-            <div v-if="!reservations.length" class="empty-state py-20"><CalendarDays :size="36" class="mx-auto mb-4 text-stone-300" /><h3 class="font-medium text-stone-700">該当する予約はありません</h3><p class="mt-2 text-sm text-stone-500">日付やステータスを変更して確認してください。</p></div>
+            <div v-if="!reservations.length" class="empty-state py-20"><CalendarDays :size="36" class="mx-auto mb-4 text-stone-300" /><h3 class="font-medium text-stone-700">該当する予約はありません</h3><p class="mt-2 text-sm text-stone-500">日付・ステータス・トレーナーを変更して確認してください。</p></div>
             <div v-else class="overflow-x-auto">
                 <table class="w-full min-w-[800px] text-left text-sm">
                     <thead class="bg-stone-50/70 text-xs text-stone-500"><tr><th class="px-6 py-4 font-medium">日時 / 予約番号</th><th class="px-5 py-4 font-medium">クライアント</th><th class="px-5 py-4 font-medium">トレーナー</th><th class="px-5 py-4 font-medium">料金</th><th class="px-5 py-4 font-medium">ステータス</th><th class="px-5 py-4"><span class="sr-only">詳細</span></th></tr></thead>

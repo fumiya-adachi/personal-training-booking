@@ -6,12 +6,14 @@ use App\Enums\ReservationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreClosedDateRequest;
 use App\Http\Requests\Admin\UpdateScheduleRequest;
+use App\Models\BusinessHour;
 use App\Models\ClosedDate;
 use App\Models\Reservation;
 use App\Models\Trainer;
 use App\Models\TrainerSchedule;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -22,6 +24,7 @@ class ScheduleController extends Controller
     public function index(): Response
     {
         return Inertia::render('admin/schedules/Index', [
+            'closedWeekdays' => collect(range(0, 6))->diff(BusinessHour::where('is_open', true)->pluck('day_of_week'))->values(),
             'trainers' => Trainer::orderBy('id')->get(),
             'schedules' => TrainerSchedule::orderBy('trainer_id')->orderBy('day_of_week')->get()->map(fn (TrainerSchedule $schedule) => [
                 'id' => $schedule->id,
@@ -68,6 +71,35 @@ class ScheduleController extends Controller
         });
 
         return back()->with('success', '勤務スケジュールを更新しました。');
+    }
+
+    public function updateClosedWeekdays(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'closed_weekdays' => ['present', 'array', 'max:7'],
+            'closed_weekdays.*' => ['required', 'integer', 'between:0,6', 'distinct'],
+        ]);
+        $closedDays = array_map('intval', $data['closed_weekdays']);
+
+        DB::transaction(function () use ($closedDays): void {
+            // Use the same locks as booking creation and individual closures.
+            Trainer::orderBy('id')->lockForUpdate()->get();
+            $reservations = Reservation::where('status', ReservationStatus::Confirmed)
+                ->where('ends_at', '>', now('UTC'))->get();
+            foreach ($reservations as $reservation) {
+                $day = CarbonImmutable::parse($reservation->starts_at)->setTimezone(config('booking.timezone'))->dayOfWeek;
+                if (in_array($day, $closedDays, true)) {
+                    throw ValidationException::withMessages(['closed_weekdays' => '指定した曜日には確定済みの予約があります。先に該当予約をご確認ください。']);
+                }
+            }
+            foreach (range(0, 6) as $day) {
+                $hours = BusinessHour::firstOrNew(['day_of_week' => $day], ['open_time' => '09:00', 'close_time' => '19:00']);
+                $hours->is_open = ! in_array($day, $closedDays, true);
+                $hours->save();
+            }
+        });
+
+        return back()->with('success', '定休日を更新しました。');
     }
 
     public function storeClosedDate(StoreClosedDateRequest $request): RedirectResponse

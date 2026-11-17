@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
         Route::patch('/trainers/{trainer}', [Admin\TrainerController::class, 'update'])->name('trainers.update');
         Route::get('/schedules', [Admin\ScheduleController::class, 'index'])->name('schedules.index');
         Route::put('/schedules/{trainer}', [Admin\ScheduleController::class, 'update'])->name('schedules.update');
+        Route::put('/closed-weekdays', [Admin\ScheduleController::class, 'updateClosedWeekdays'])->name('closed-weekdays.update');
         Route::post('/closed-dates', [Admin\ScheduleController::class, 'storeClosedDate'])->name('closed-dates.store');
         Route::delete('/closed-dates/{closedDate}', [Admin\ScheduleController::class, 'destroyClosedDate'])->name('closed-dates.destroy');
     });
